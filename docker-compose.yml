@@ -1,0 +1,55 @@
+services:
+  postgis:
+    container_name: postgis
+    image: postgis/postgis:15-3.3-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  chatbot:
+    container_name: chatbot
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./images:/app/images
+    depends_on:
+      - evolution-api
+
+  evolution-api:
+    container_name: evolution_api
+    image: atendai/evolution-api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - evolution_store:/evolution/store
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - postgis
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  evolution_store:
+  evolution_instances:

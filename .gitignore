@@ -1,0 +1,94 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Docker
+.dockerignore
+
+# Imagens enviadas pelos usuários
+images/
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# QR Codes temporários
+/tmp/qrcode.png
+qrcode.png
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Cache
+.cache/
+.parcel-cache/
+
+# Backups
+*.bak
+*.backup
+*~
+
+# Evolution API stores (caso use volumes locais)
+evolution_store/
+evolution_instances/
