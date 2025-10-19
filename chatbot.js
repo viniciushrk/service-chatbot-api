@@ -23,9 +23,21 @@ const INSTANCE_NAME = process.env.INSTANCE_NAME || 'chatbot';
 // Estados do fluxo
 const STATES = {
   INIT: 'init',
+  WAITING_CATEGORY: 'waiting_category',
   WAITING_LOCATION: 'waiting_location',
   WAITING_PHOTO: 'waiting_photo',
   WAITING_DESCRIPTION: 'waiting_description'
+};
+
+// Categorias de ocorrências
+const CATEGORIES = {
+  1: 'Coleta de lixo',
+  2: 'Iluminação pública',
+  3: 'Buraco na rua',
+  4: 'Descarte de lixo incorreto',
+  5: 'Alagamento',
+  6: 'Elogio',
+  7: 'Outros'
 };
 
 // Webhook recebe mensagens do WhatsApp
@@ -76,8 +88,33 @@ async function handleMessage(userId, message, key) {
 
   switch (session.state) {
     case STATES.INIT:
-      await sendMessage(userId, '👋 Olá! Vou coletar informações sobre o problema.\n\nPor favor, envie sua *localização* (use o ícone 📎 > Localização)');
-      session.state = STATES.WAITING_LOCATION;
+      const categoryMenu = '👋 Olá! Vou coletar informações sobre o problema.\n\n' +
+        '*Escolha a categoria da ocorrência:*\n\n' +
+        '1️⃣ Coleta de lixo\n' +
+        '2️⃣ Iluminação pública\n' +
+        '3️⃣ Buraco na rua\n' +
+        '4️⃣ Descarte de lixo incorreto\n' +
+        '5️⃣ Alagamento\n' +
+        '6️⃣ Elogio\n' +
+        '7️⃣ Outros\n\n' +
+        'Digite o *número* da categoria:';
+
+      await sendMessage(userId, categoryMenu);
+      session.state = STATES.WAITING_CATEGORY;
+      break;
+
+    case STATES.WAITING_CATEGORY:
+      const categoryNumber = parseInt(message.conversation || message.extendedTextMessage?.text);
+
+      if (categoryNumber >= 1 && categoryNumber <= 7) {
+        session.data.category = categoryNumber;
+        session.data.categoryName = CATEGORIES[categoryNumber];
+
+        await sendMessage(userId, `✅ Categoria selecionada: *${CATEGORIES[categoryNumber]}*\n\nAgora, envie sua *localização* (use o ícone 📎 > Localização)`);
+        session.state = STATES.WAITING_LOCATION;
+      } else {
+        await sendMessage(userId, '❌ Número inválido. Por favor, escolha um número de 1 a 7.');
+      }
       break;
 
     case STATES.WAITING_LOCATION:
@@ -193,12 +230,49 @@ async function sendToAPI(data) {
   console.log('📊 Dados recebidos para processar:');
   console.log('=====================================');
   console.log('📱 Telefone:', data.phone);
+  console.log('🏷️  Categoria:', `${data.category} - ${data.categoryName}`);
   console.log('📍 Latitude:', data.latitude);
   console.log('📍 Longitude:', data.longitude);
   console.log('📸 Foto:', data.photo || 'Sem foto');
   console.log('📝 Descrição:', data.description);
   console.log('🕐 Timestamp:', new Date().toISOString());
   console.log('=====================================');
+
+  try {
+    // Extrair apenas números do telefone
+    const phoneNumber = data.phone.replace(/\D/g, '');
+
+    const payload = {
+      telefone: phoneNumber,
+      latitude: data.longitude, // API espera longitude no campo latitude
+      longitude: data.latitude,  // API espera latitude no campo longitude
+      descricao: data.description,
+      fotoUrlPath: data.photo || 'sem_foto',
+      categoria: data.category
+    };
+
+    console.log('📤 Enviando para API Zeladoria Digital...');
+    console.log('Payload:', JSON.stringify(payload, null, 2));
+
+    const response = await axios.post('http://3.90.208.60:3080/api/v1/Ocorrencias', payload, {
+      headers: {
+        'accept': '*/*',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('✅ Ocorrência registrada com sucesso!');
+    console.log('Resposta da API:', JSON.stringify(response.data, null, 2));
+
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erro ao enviar para API:', error.message);
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Dados:', JSON.stringify(error.response.data, null, 2));
+    }
+    throw error;
+  }
 }
 
 // Endpoint genérico para enviar mensagens
