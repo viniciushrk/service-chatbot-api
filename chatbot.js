@@ -90,7 +90,7 @@ async function handleMessage(userId, message, key) {
 
   switch (session.state) {
     case STATES.INIT:
-      const serviceMenu = '👋 Olá! Bem-vindo ao *Zeladoria Digital*!\n\n' +
+      const serviceMenu = '👋 Olá! Bem-vindo ao *FalaPvh*!\n\n' +
         'Como posso te ajudar hoje?\n\n' +
         '1️⃣ Registrar uma ocorrência\n' +
         '2️⃣ Consultar dia da coleta de lixo\n\n' +
