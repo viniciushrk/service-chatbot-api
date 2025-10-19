@@ -158,12 +158,18 @@ async function handleMessage(userId, message, key) {
         // Download da imagem
         const imageUrl = await downloadMedia(message.imageMessage, key);
         session.data.photo = imageUrl;
-        
-        await sendMessage(userId, '📸 Foto recebida!\n\nAgora descreva o *problema* encontrado:');
+
+        const promptText = session.data.category === 6
+          ? '📸 Foto recebida!\n\nAgora descreva o elogio:'
+          : '📸 Foto recebida!\n\nAgora descreva a sua *ocorrência*:';
+        await sendMessage(userId, promptText);
         session.state = STATES.WAITING_DESCRIPTION;
       } else if (message.conversation?.toLowerCase() === 'pular') {
         session.data.photo = null;
-        await sendMessage(userId, '⏭️ Ok, sem foto.\n\nAgora descreva o *problema* encontrado:');
+        const promptText = session.data.category === 6
+          ? '⏭️ Ok, sem foto.\n\nAgora descreva o elogio:'
+          : '⏭️ Ok, sem foto.\n\nAgora descreva a sua *ocorrência*:';
+        await sendMessage(userId, promptText);
         session.state = STATES.WAITING_DESCRIPTION;
       } else {
         await sendMessage(userId, '❌ Envie uma foto ou digite "pular"');
