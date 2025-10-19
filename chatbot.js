@@ -23,10 +23,12 @@ const INSTANCE_NAME = process.env.INSTANCE_NAME || 'chatbot';
 // Estados do fluxo
 const STATES = {
   INIT: 'init',
+  WAITING_SERVICE_CHOICE: 'waiting_service_choice',
   WAITING_CATEGORY: 'waiting_category',
   WAITING_LOCATION: 'waiting_location',
   WAITING_PHOTO: 'waiting_photo',
-  WAITING_DESCRIPTION: 'waiting_description'
+  WAITING_DESCRIPTION: 'waiting_description',
+  WAITING_LOCATION_COLETA: 'waiting_location_coleta'
 };
 
 // Categorias de ocorrências
@@ -88,19 +90,40 @@ async function handleMessage(userId, message, key) {
 
   switch (session.state) {
     case STATES.INIT:
-      const categoryMenu = '👋 Olá! Vou coletar informações sobre o problema.\n\n' +
-        '*Escolha a categoria da ocorrência:*\n\n' +
-        '1️⃣ Coleta de lixo\n' +
-        '2️⃣ Iluminação pública\n' +
-        '3️⃣ Buraco na rua\n' +
-        '4️⃣ Descarte de lixo incorreto\n' +
-        '5️⃣ Alagamento\n' +
-        '6️⃣ Elogio\n' +
-        '7️⃣ Outros\n\n' +
-        'Digite o *número* da categoria:';
+      const serviceMenu = '👋 Olá! Bem-vindo ao *Zeladoria Digital*!\n\n' +
+        'Como posso te ajudar hoje?\n\n' +
+        '1️⃣ Registrar uma ocorrência\n' +
+        '2️⃣ Consultar dia da coleta de lixo\n\n' +
+        'Digite *1* ou *2*:';
 
-      await sendMessage(userId, categoryMenu);
-      session.state = STATES.WAITING_CATEGORY;
+      await sendMessage(userId, serviceMenu);
+      session.state = STATES.WAITING_SERVICE_CHOICE;
+      break;
+
+    case STATES.WAITING_SERVICE_CHOICE:
+      const serviceChoice = parseInt(message.conversation || message.extendedTextMessage?.text);
+
+      if (serviceChoice === 1) {
+        // Fluxo de registrar ocorrência
+        const categoryMenu = '*Escolha a categoria da ocorrência:*\n\n' +
+          '1️⃣ Coleta de lixo\n' +
+          '2️⃣ Iluminação pública\n' +
+          '3️⃣ Buraco na rua\n' +
+          '4️⃣ Descarte de lixo incorreto\n' +
+          '5️⃣ Alagamento\n' +
+          '6️⃣ Elogio\n' +
+          '7️⃣ Outros\n\n' +
+          'Digite o *número* da categoria:';
+
+        await sendMessage(userId, categoryMenu);
+        session.state = STATES.WAITING_CATEGORY;
+      } else if (serviceChoice === 2) {
+        // Fluxo de consultar dia de coleta
+        await sendMessage(userId, '🗑️ *Consulta de Horário de Coleta*\n\nPor favor, envie sua *localização* (use o ícone 📎 > Localização)');
+        session.state = STATES.WAITING_LOCATION_COLETA;
+      } else {
+        await sendMessage(userId, '❌ Opção inválida. Por favor, digite *1* para registrar ocorrência ou *2* para consultar coleta de lixo.');
+      }
       break;
 
     case STATES.WAITING_CATEGORY:
@@ -164,6 +187,28 @@ async function handleMessage(userId, message, key) {
         await sendMessage(userId, '❌ Por favor, envie uma descrição em texto.');
       }
       break;
+
+    case STATES.WAITING_LOCATION_COLETA:
+      if (message.locationMessage) {
+        const { degreesLatitude, degreesLongitude } = message.locationMessage;
+
+        await sendMessage(userId, '🔄 Consultando horários de coleta...');
+
+        // Consultar API de horários
+        const horariosColeta = await consultarHorariosColeta(degreesLatitude, degreesLongitude);
+
+        if (horariosColeta.success) {
+          await enviarHorariosColeta(userId, horariosColeta);
+        } else {
+          await sendMessage(userId, `❌ ${horariosColeta.message}`);
+        }
+
+        // Limpa sessão
+        delete sessions[userId];
+      } else {
+        await sendMessage(userId, '❌ Por favor, envie uma localização válida.');
+      }
+      break;
   }
 }
 
@@ -223,6 +268,58 @@ async function downloadMedia(imageMessage, key) {
     console.error('Detalhes do erro:', error.response?.data || error);
     return null;
   }
+}
+
+// Consulta horários de coleta
+async function consultarHorariosColeta(latitude, longitude) {
+  try {
+    console.log(`🔍 Consultando horários para: lat=${latitude}, lon=${longitude}`);
+
+    const response = await axios.get('http://3.90.208.60:3080/api/v1/HorarioColeta/consultar', {
+      params: {
+        latitude: latitude,
+        longitude: longitude
+      }
+    });
+
+    console.log('✅ Horários encontrados:', JSON.stringify(response.data, null, 2));
+    return response.data;
+  } catch (error) {
+    console.error('❌ Erro ao consultar horários:', error.message);
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Dados:', error.response.data);
+      return error.response.data || { success: false, message: 'Erro ao consultar horários' };
+    }
+    return { success: false, message: 'Erro ao consultar horários' };
+  }
+}
+
+// Formata e envia horários de coleta para o usuário
+async function enviarHorariosColeta(userId, data) {
+  const { bairro, horariosColeta } = data;
+
+  let mensagem = `📍 *Bairro:* ${bairro.nome}\n`;
+  mensagem += `📏 *Distância:* ${Math.round(bairro.distanciaMetros)}m\n\n`;
+  mensagem += `🗑️ *Horários de Coleta:*\n\n`;
+
+  if (horariosColeta && horariosColeta.length > 0) {
+    horariosColeta.forEach(h => {
+      mensagem += `📅 *${h.diaSemanaDescricao}*\n`;
+      mensagem += `   ⏰ ${h.horario}\n`;
+      mensagem += `   🌓 ${h.turno}\n`;
+      if (h.nomeEmpresa) {
+        mensagem += `   🏢 ${h.nomeEmpresa}\n`;
+      }
+      mensagem += '\n';
+    });
+  } else {
+    mensagem += 'Nenhum horário de coleta encontrado para este bairro.\n';
+  }
+
+  mensagem += '✅ Lembre-se de colocar o lixo na calçada no dia e horário indicados!';
+
+  await sendMessage(userId, mensagem);
 }
 
 // Envia para sua API final
