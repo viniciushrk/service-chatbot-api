@@ -341,8 +341,8 @@ async function sendToAPI(data) {
 
     const payload = {
       telefone: phoneNumber,
-      latitude: data.longitude, // API espera longitude no campo latitude
-      longitude: data.latitude,  // API espera latitude no campo longitude
+      latitude: data.latitude, // API espera longitude no campo latitude
+      longitude: data.longitude,  // API espera latitude no campo longitude
       descricao: data.description,
       fotoUrlPath: data.photo || 'sem_foto',
       categoria: data.category
