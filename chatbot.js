@@ -275,7 +275,7 @@ async function consultarHorariosColeta(latitude, longitude) {
   try {
     console.log(`🔍 Consultando horários para: lat=${latitude}, lon=${longitude}`);
 
-    const response = await axios.get('http://18.210.235.78:3080/api/v1/HorarioColeta/consultar', {
+    const response = await axios.get('https://api.falapvh.digital/api/v1/HorarioColeta/consultar', {
       params: {
         latitude: latitude,
         longitude: longitude
@@ -351,7 +351,7 @@ async function sendToAPI(data) {
     console.log('📤 Enviando para API Zeladoria Digital...');
     console.log('Payload:', JSON.stringify(payload, null, 2));
 
-    const response = await axios.post('http://18.210.235.78:3080/api/v1/Ocorrencias', payload, {
+    const response = await axios.post('https://api.falapvh.digital/api/v1/Ocorrencias', payload, {
       headers: {
         'accept': '*/*',
         'Content-Type': 'application/json'
