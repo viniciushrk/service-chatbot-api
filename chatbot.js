@@ -312,6 +312,81 @@ app.post('/send-message', async (req, res) => {
   }
 });
 
+// Endpoint para visualizar imagens por path completo ou filename
+app.get('/image', (req, res) => {
+  try {
+    const { path: imagePath } = req.query;
+
+    if (!imagePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parâmetro "path" é obrigatório. Exemplo: /image?path=/app/images/image_123.jpg'
+      });
+    }
+
+    // Extrair apenas o nome do arquivo do path
+    // Aceita tanto "/app/images/image_123.jpg" quanto "image_123.jpg"
+    const filename = path.basename(imagePath);
+
+    // Validar filename para evitar path traversal
+    if (filename.includes('..') || filename.includes('/')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nome de arquivo inválido'
+      });
+    }
+
+    const filepath = path.join(IMAGES_DIR, filename);
+
+    // Verificar se o arquivo existe
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Imagem não encontrada',
+        searchedPath: filepath
+      });
+    }
+
+    // Enviar a imagem
+    res.sendFile(filepath);
+  } catch (error) {
+    console.error('❌ Erro ao buscar imagem:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para listar todas as imagens
+app.get('/images', (_req, res) => {
+  try {
+    const files = fs.readdirSync(IMAGES_DIR);
+
+    const images = files
+      .filter(file => file.match(/\.(jpg|jpeg|png|gif)$/i))
+      .map(file => ({
+        filename: file,
+        url: `/image?path=/app/images/${file}`,
+        fullPath: `/app/images/${file}`,
+        createdAt: fs.statSync(path.join(IMAGES_DIR, file)).mtime
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt); // Mais recentes primeiro
+
+    res.json({
+      success: true,
+      total: images.length,
+      images: images
+    });
+  } catch (error) {
+    console.error('❌ Erro ao listar imagens:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Endpoint de health check
 app.get('/health', (_req, res) => {
   res.json({
@@ -325,7 +400,9 @@ app.listen(3000, () => {
   console.log('Chatbot rodando na porta 3000');
   console.log('');
   console.log('📋 Endpoints disponíveis:');
-  console.log('  POST /webhook        - Recebe mensagens do WhatsApp');
-  console.log('  POST /send-message   - Envia mensagens (phone, message)');
-  console.log('  GET  /health         - Health check');
+  console.log('  POST /webhook                         - Recebe mensagens do WhatsApp');
+  console.log('  POST /send-message                    - Envia mensagens (phone, message)');
+  console.log('  GET  /images                          - Lista todas as imagens');
+  console.log('  GET  /image?path=/app/images/xxx.jpg  - Visualiza imagem pelo path');
+  console.log('  GET  /health                          - Health check');
 });
